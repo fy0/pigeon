@@ -266,7 +266,11 @@ func (b *builder) writeActionExpr(act *ast.ActionExpr) {
 	b.writelnf("\tpos: position{line: %d, col: %d, offset: %d},", pos.Line, pos.Col, pos.Off)
 	b.writelnf("\trun: (*parser).call%s,", b.funcName(act.FuncIx))
 	b.writef("\texpr: ")
-	b.writeExpr(act.Expr)
+	if act.Expr != nil {
+		b.writeExpr(act.Expr)
+	} else {
+		b.writeln("null,")
+	}
 	b.writelnf("},")
 }
 
@@ -578,7 +582,9 @@ func (b *builder) addArg(arg *ast.Identifier) {
 func (b *builder) writeExprCode(expr ast.Expression) {
 	switch expr := expr.(type) {
 	case *ast.ActionExpr:
-		b.writeExprCode(expr.Expr)
+		if expr.Expr != nil {
+			b.writeExprCode(expr.Expr)
+		}
 		b.writeActionExprCode(expr)
 	case *ast.LabeledExpr:
 		b.addArg(expr.Label)

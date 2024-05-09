@@ -1120,8 +1120,12 @@ func (p *parser) parseActionExpr(act *actionExpr) (any, bool) {
 	}
 
 	// {{ end }} ==template==
+	var val any
 	start := p.pt
-	val, ok := p.parseExprWrap(act.expr)
+	ok := true
+	if act.expr != nil {
+		val, ok = p.parseExprWrap(act.expr)
+	}
 	if ok {
 		p.cur.pos = start.position
 		p.cur.text = p.sliceFrom(start)

@@ -30,6 +30,9 @@ func (a *ActionExpr) String() string {
 
 // NullableVisit recursively determines whether an object is nullable.
 func (a *ActionExpr) NullableVisit(rules map[string]*Rule) bool {
+	if a.Expr == nil {
+		return true
+	}
 	a.Nullable = a.Expr.NullableVisit(rules)
 	return a.Nullable
 }
@@ -42,6 +45,9 @@ func (a *ActionExpr) IsNullable() bool {
 // InitialNames returns names of nodes with which an expression can begin.
 func (a *ActionExpr) InitialNames() map[string]struct{} {
 	names := make(map[string]struct{})
+	if a.Expr == nil {
+		return names
+	}
 	for name := range a.Expr.InitialNames() {
 		names[name] = struct{}{}
 	}

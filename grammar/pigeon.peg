@@ -104,12 +104,10 @@ ActionExpr ← expr:SeqExpr code:( __ CodeBlock )? {
     act.Code = codeSlice[1].(*ast.CodeBlock)
 
     return act, nil
-} / CodeExpr
-
-CodeExpr ← __ code:CodeBlock {
-    state := ast.NewCodeExpr(c.astPos())
-    state.Code = code.(*ast.CodeBlock)
-    return state, nil
+} / __ code:CodeBlock {
+    act := ast.NewActionExpr(c.astPos())
+    act.Code = code.(*ast.CodeBlock)
+    return act, nil
 }
 
 SeqExpr ← first:LabeledExpr rest:( __ LabeledExpr )* {

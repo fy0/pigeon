@@ -55,6 +55,13 @@ func compareRule(t *testing.T, prefix string, exp, got *ast.Rule) bool {
 func compareExpr(t *testing.T, prefix string, ix int, exp, got ast.Expression) bool {
 	ixPrefix := prefix + " (" + strconv.Itoa(ix) + ")"
 
+	if exp == nil || got == nil {
+		if exp == got {
+			return true
+		}
+		return false
+	}
+
 	switch exp := exp.(type) {
 	case *ast.ActionExpr:
 		got, ok := got.(*ast.ActionExpr)
