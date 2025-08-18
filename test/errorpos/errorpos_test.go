@@ -49,7 +49,10 @@ func TestErrorPos(t *testing.T) {
 		}
 		if got != exp {
 			p = newParser("", []byte(tc), debug(true))
-			p.parse(nil)
+			_, err = p.parse(g)
+			if err != nil {
+				t.Errorf("%q: %v", tc, err)
+			}
 			t.Errorf("%q: want '%v', got '%v'", tc, exp, got)
 		}
 	}

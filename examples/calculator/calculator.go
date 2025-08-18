@@ -403,6 +403,14 @@ func (ss *parserStack) top() *savepoint {
 // the previous setting as an option.
 type option func(*parser) option
 
+func memoized(b bool) option {
+	return func(p *parser) option {
+		old := p.memoized
+		p.memoized = b
+		return memoized(old)
+	}
+}
+
 // Parse parses the data from b using filename as information in the
 // error messages.
 func parse(filename string, b []byte, opts ...option) (any, error) {
@@ -643,8 +651,9 @@ type parser struct {
 	data []byte
 	errs *errList
 
-	depth   int
-	recover bool
+	depth    int
+	recover  bool
+	memoized bool
 
 	// memoization table for the packrat algorithm:
 	// map[offset in source] map[expression or rule] {value, match}
@@ -994,23 +1003,28 @@ func (p *parser) parseExprWrap(expr any) (any, bool) {
 	}
 
 	setMemoized := func(pos int, expr any, val resultTuple) {
+		if !p.memoized {
+			return
+		}
 		if memo[pos] == nil {
 			memo[pos] = map[any]*resultTuple{}
 		}
 		memo[pos][expr] = &val
 	}
 
-	getMemoized := func(expr any) *resultTuple {
-		pos := p.pt.offset
-		if memo[pos] == nil {
-			return nil
+	if p.memoized {
+		getMemoized := func(expr any) *resultTuple {
+			pos := p.pt.offset
+			if memo[pos] == nil {
+				return nil
+			}
+			return memo[pos][expr]
 		}
-		return memo[pos][expr]
-	}
 
-	if m := getMemoized(expr); m != nil {
-		p.restore(&m.end)
-		return m.v, m.b
+		if m := getMemoized(expr); m != nil {
+			p.restore(&m.end)
+			return m.v, m.b
+		}
 	}
 
 	pos := p.pt.offset
