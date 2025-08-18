@@ -13,7 +13,7 @@ See the [godoc page][3] for detailed usage. Also have a look at the [Pigeon Wiki
 
 * Performance improvements (5-10x faster than the original version):
   * Removed `parser.state`, because it's very slow.
-  * `Memoized` can be worked together with `Optimize` option and enabled by default.
+  * `Memoized` can be worked together with `Optimize` option.
   * More memory efficient - reduces memory allocations
   * Generates cleaner and less lines of code
 
@@ -29,6 +29,7 @@ See the [godoc page][3] for detailed usage. Also have a look at the [Pigeon Wiki
 * Use code to control matching behavior (`andCodeExpr` and `notCodeExpr`):
     * `expr <- &{ return c.data.AllowNumber } [0-9]+` // Only matches digits if c.data.AllowNumber is true
     * `expr <- val:<[0-9]+> &{ return val.(string) == "123" } { return val.(string) }` // Only succeeds if the matched string equals "123"
+    * Tips: don't enable memoized if you control matching behavior by code.
 
 * Logical `and` / `or` match:
   * `expr <- &&testExpr testExpr` // if testExpr return ok but matched nothing (e.g. testExpr <- 'A'*), `&&testEpr` returns false.

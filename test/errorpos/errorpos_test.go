@@ -41,13 +41,15 @@ var cases = map[string]string{
 
 func TestErrorPos(t *testing.T) {
 	for tc, exp := range cases {
-		_, err := Parse("", []byte(tc))
+		p := newParser("", []byte(tc))
+		_, err := p.parse(nil)
 		var got string
 		if err != nil {
 			got = err.Error()
 		}
 		if got != exp {
-			_, _ = Parse("", []byte(tc), Debug(true))
+			p = newParser("", []byte(tc), debug(true))
+			p.parse(nil)
 			t.Errorf("%q: want '%v', got '%v'", tc, exp, got)
 		}
 	}

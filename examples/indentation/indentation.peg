@@ -48,8 +48,7 @@ Comment ← "//" [^\r\n]*
 
 EOF ← !.
 
-// uses & predicate to check spaces first, because it consumes whitespace
-INDENTATION ← &( spaces:<(" ")*> &{ return len(spaces.(string)) == c.data.Indentation }) (" ")*
+INDENTATION ← spaces:<(" ")*> &{ return len(spaces.(string)) == c.data.Indentation }
 
 INDENT ← { c.data.Indentation += 4 }
 

@@ -46,7 +46,7 @@ func main() {
 		nolint             = fs.Bool("nolint", false, "add '// nolint: ...' comments to suppress warnings by gometalinter or golangci-lint")
 		noRecoverFlag      = fs.Bool("no-recover", false, "do not recover from panic")
 		outputFlag         = fs.String("o", "", "output file, defaults to stdout")
-		optimizeParserFlag = fs.Bool("optimize-parser", false, "generate optimized parser without Debug and Memoize options")
+		optimizeParserFlag = fs.Bool("optimize-parser", false, "generate optimized parser without Debug options")
 		recvrNmFlag        = fs.String("receiver-name", "c", "receiver name for the generated methods")
 		noBuildFlag        = fs.Bool("x", false, "do not build, only parse")
 

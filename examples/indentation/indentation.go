@@ -331,23 +331,14 @@ var g = &grammar{
 			varExists: true,
 			expr: &seqExpr{
 				exprs: []any{
-					&notExpr{
-						expr: &seqExpr{
-							exprs: []any{
-								&labeledExpr{
-									label: "spaces",
-									expr: &zeroOrMoreExpr{
-										expr: &litMatcher{val: " ", want: "\" \""},
-									},
-									textCapture: true,
-								},
-								&andCodeExpr{run: (*parser).call_onINDENTATION_7},
-							},
+					&labeledExpr{
+						label: "spaces",
+						expr: &zeroOrMoreExpr{
+							expr: &litMatcher{val: " ", want: "\" \""},
 						},
+						textCapture: true,
 					},
-					&zeroOrMoreExpr{
-						expr: &litMatcher{val: " ", want: "\" \""},
-					},
+					&andCodeExpr{run: (*parser).call_onINDENTATION_5},
 				},
 			},
 		},
@@ -486,10 +477,10 @@ func (p *parser) call_onAddOp_1() any {
 	})(&p.cur)
 }
 
-func (p *parser) call_onINDENTATION_7() bool {
+func (p *parser) call_onINDENTATION_5() bool {
 	stack := p.vstack[len(p.vstack)-1]
 	return (func(c *current, spaces any) bool {
-		return len(spaces.(string)) != c.data.Indentation
+		return len(spaces.(string)) == c.data.Indentation
 	})(&p.cur, stack["spaces"])
 }
 
@@ -560,6 +551,14 @@ func (ss *parserStack) top() *savepoint {
 // option is a function that can set an option on the parser. It returns
 // the previous setting as an option.
 type option func(*parser) option
+
+func memoized(b bool) option {
+	return func(p *parser) option {
+		old := p.memoized
+		p.memoized = b
+		return memoized(old)
+	}
+}
 
 // Parse parses the data from b using filename as information in the
 // error messages.
@@ -801,8 +800,9 @@ type parser struct {
 	data []byte
 	errs *errList
 
-	depth   int
-	recover bool
+	depth    int
+	recover  bool
+	memoized bool
 
 	// memoization table for the packrat algorithm:
 	// map[offset in source] map[expression or rule] {value, match}
@@ -1152,23 +1152,28 @@ func (p *parser) parseExprWrap(expr any) (any, bool) {
 	}
 
 	setMemoized := func(pos int, expr any, val resultTuple) {
+		if !p.memoized {
+			return
+		}
 		if memo[pos] == nil {
 			memo[pos] = map[any]*resultTuple{}
 		}
 		memo[pos][expr] = &val
 	}
 
-	getMemoized := func(expr any) *resultTuple {
-		pos := p.pt.offset
-		if memo[pos] == nil {
-			return nil
+	if p.memoized {
+		getMemoized := func(expr any) *resultTuple {
+			pos := p.pt.offset
+			if memo[pos] == nil {
+				return nil
+			}
+			return memo[pos][expr]
 		}
-		return memo[pos][expr]
-	}
 
-	if m := getMemoized(expr); m != nil {
-		p.restore(&m.end)
-		return m.v, m.b
+		if m := getMemoized(expr); m != nil {
+			p.restore(&m.end)
+			return m.v, m.b
+		}
 	}
 
 	pos := p.pt.offset
