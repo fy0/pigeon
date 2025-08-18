@@ -11,54 +11,58 @@ See the [godoc page][3] for detailed usage. Also have a look at the [Pigeon Wiki
 
 ## Features for this fork
 
-* Performance tweak, 5-10x faster than original version(with some trade off).
-  * `parser.state` is removed, because it's very slow.
-  * `parseSeqExpr` only collect not nil values now. Mainly for performance improvement. For example: `e <- Expr __ Plus __ Expr` returns \[expr, '+', expr], original version return \[expr, nil, '+', nil, expr].
-  * Memoized can be worked with Optimize and enable by default.
-  * Generated parser do less memory allocated.
-  * Generated parser uses fewer lines of code.
+* Performance improvements (5-10x faster than the original version):
+  * Removed `parser.state`, because it's very slow.
+  * `Memoized` can be worked together with `Optimize` option and enabled by default.
+  * More memory efficient - reduces memory allocations
+  * Generates cleaner and less lines of code
 
-* Multiple peg files supported.
-  1. `pigeon -o script1.peg.go script1.peg` to generate a normal parser.
-  2. Run `pigeon -grammar-only -grammar-name=g2 -run-func-prefix="_s2_" -o script2.peg.go script2.peg` to generate grammar only code in same package.
-  3. Use it by `newParser("filename", "expr").parse(g2)`
-
-
-* `actionExpr` is different
-  * Only needs to return one value. Moreover, this is not required. If the return statement is not written, it will automatically return nil. Examples:
-    * `expr <- [0-9]+ { fmt.Println(expr) }` is ok in this fork.
-    * `expr <- "true" { return 1 }` if you want return something.
-  * If you want to add an error by manual, do this:
-    * `expr <- "if" { p.addErr(errors.New("keyword is not allowed")) }`, equals to `expr <- "if" { return nil, errors.New("keyword is not allowed") }` of original pigeon.
-
-* `andCodeExpr` and `notCodeExpr`:
-    * Like `actionExpr`, return a bool instead of return bool and error
-    * `expr <- &{ return c.data.AllowNumber } [0-9]+`
+* `parseSeqExpr` only collects values that are explicitly returned, improving performance:
+  * Example 1: `e <- items:(__ Integer __)+ EOF { return items }` returns an empty array `[]` since no values are explicitly marked for collection
+  * Example 2: `e <- items:(__ i:Integer __ { return i })+ EOF { return items }` returns `[1, 2, 3]` because integers are explicitly collected
+  * This is more efficient than the original version which would return `[[nil, 1, nil], [nil, 2, nil], [nil, 3, nil]]` with unnecessary nil values
 
 * String capture:
-  * `expr <- val:<anotherExpr> { fmt.Println(val.(string)) }`
-  * `expr <- val:<(A '=' B)> { fmt.Println(val.(string)) }`
+  * `expr <- val:<anotherExpr> { fmt.Println(val.(string)) }` // you got the string value in `val`
+  * `expr <- val:<(A '=' B)> { fmt.Println(val.(string)) }` // you got the string value in `val`, e.g. "A=B"
+
+* Use code to control matching behavior (`andCodeExpr` and `notCodeExpr`):
+    * `expr <- &{ return c.data.AllowNumber } [0-9]+` // Only matches digits if c.data.AllowNumber is true
+    * `expr <- val:<[0-9]+> &{ return val.(string) == "123" } { return val.(string) }` // Only succeeds if the matched string equals "123"
 
 * Logical `and` / `or` match:
   * `expr <- &&testExpr testExpr` // if testExpr return ok but matched nothing (e.g. testExpr <- 'A'*), `&&testEpr` returns false.
 
-* Skip "actionExpr" while looking ahead [issue](https://github.com/mna/pigeon/issues/149), branch feat/skip-code-expr-while-looking-ahead
-  * See detail in the issue.
-  * `*{}` / `&{}` / `!{}` won't skip.
+* Multiple peg files supported:
+  1. `pigeon -o script1.peg.go script1.peg` to generate a normal parser.
+  2. Run `pigeon -grammar-only -grammar-name=g2 -run-func-prefix="_s2_" -o script2.peg.go script2.peg` to generate grammar only code in same package.
+  3. Use it by `newParser("filename", "expr").parse(g2)`
+
+* Simplified `actionExpr`:
+  * The original version required two parameters to return (val, error), but errors are rarely used. So this fork simplifies the return values.
+  * Examples:
+    * `expr <- [0-9]+ { fmt.Println(expr) }` is ok in this fork, returns nothing.
+    * `expr <- "true" { return 1 }` if you want return something.
+  * Add an error by manual:
+    * `expr <- "if" { p.addErr(errors.New("keyword is not allowed")) }`, equals to `expr <- "if" { return nil, errors.New("keyword is not allowed") }` of original pigeon.
+
+* Provide a struct(`ParserCustomData`) to embed, to replace the `globalStore`
+  * Must define a struct `ParserCustomData` in your module.
+  * Access data by `c.data`, for example: `expr <- { fmt.Println(c.data.MyOption) }`
+  * `globalState` is removed.
 
 * Remove ParseFile ParseReader, rename Parse and all options to lowercase [issue](https://github.com/mna/pigeon/issues/150), branch feat/rename-exported-api
   * `ParseReader` converts io.Reader to bytes, then invoke `parse`, it don't make sense.
   * Function `Parse` and all options(`MaxExpressions`,`Entrypoint`,`Statistics`,`Debug`,`Memoize`,`AllowInvalidUTF8`,`Recover`,`GlobalStore`,`InitState`) expose to module user. I think expose them is not a good idea.
 
+* Skip "actionExpr" while looking ahead [issue](https://github.com/mna/pigeon/issues/149), branch feat/skip-code-expr-while-looking-ahead
+  * See detail in the issue.
+  * `*{}` / `&{}` / `!{}` won't skip.
+
 * ActionExpr refactored [issue](https://github.com/mna/pigeon/issues/150), branch refactor/actionExpr
   * Unlimited ActionExpr(CodeExpr): grammar like `expr <- firstPart:[0-9]+ { fmt.Println(firstPart) }  secondPart:[a-z]+ { fmt.Println(firstPart, secondPart) }` is allowed for this fork.
   * You can access parser in ActionExpr: `expr <- { fmt.Println(p) }`
   * `stateCodeExpr(#{})` was removed.
-
-* Provide a struct(`ParserCustomData`) to embed, to replace the globalStore
-  * Must define a struct `ParserCustomData` in your module.
-  * Access data by `c.data`, for example: `expr <- { fmt.Println(c.data.MyOption) }`
-  * `globalState` is removed.
 
 * `position` of generated code is removed 
   * It produced a lot of different for version control.
@@ -154,24 +158,23 @@ func eval(first, rest any) int {
     restSl := toAnySlice(rest)
     for _, v := range restSl {
         restExpr := toAnySlice(v)
-        r := restExpr[3].(int)
-        op := restExpr[1].(string)
+        r := restExpr[1].(int)
+        op := restExpr[0].(string)
         l = ops[op](l, r)
     }
     return l
 }
 }
 
-
 Input <- expr:Expr EOF {
     return expr
 }
 
-Expr <- _ first:Term rest:( _ AddOp _ Term )* _ {
+Expr <- _ first:Term rest:( _ op:AddOp _ r:Term { return []any{op, r} })* _ {
     return eval(first, rest)
 }
 
-Term <- first:Factor rest:( _ MulOp _ Factor )* {
+Term <- first:Factor rest:( _ op:MulOp _ r:Factor { return []any{op, r} })* {
     return eval(first, rest)
 }
 
@@ -237,3 +240,4 @@ The [BSD 3-Clause license][4]. See the LICENSE file.
 * ~~performance: In `parseCharClassMatcher`, variable `start` can be removed in most case. Lot of of small memory pieces allocated.~~
 * ~~performance: Remove Wrap function if they are not needed.~~
 * performance: Too many any, can we remove `parseExpr`?
+* string capture inside predicate expr not work: `&( alist:<("a")*> &{ fmt.Println(alist) } )`
